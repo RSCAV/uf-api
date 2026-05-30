@@ -53,6 +53,17 @@ export interface ScheduleQuery {
   category?: string;
   maxPages?: number;
   ttlMs?: number;
+  /**
+   * Extra SOC filter params (verified 2026). Booleans serialize to "true" (the value SOC
+   * requires; "on"/"1" are silently ignored). Examples:
+   *   { "ge-s": true }                    gen-ed Social Science (ge-b/c/d/h/m/n/p/s)
+   *   { "wr-4000": true }                 4000-word writing requirement (wr-2000/4000/6000)
+   *   { "qst-1": true }                   Quest 1 (qst-1..qst-4)
+   *   { credits: 4, "cred-srch": "EQ" }   exactly 4 credits (cred-srch EQ|LE|GE)
+   *   { "day-m": true, "day-w": true }    meets Monday and Wednesday
+   *   { "prog-level": "UGRD" }            undergraduate only
+   */
+  filters?: Record<string, string | number | boolean>;
 }
 
 const TERM_SEASON: Record<string, Season> = { "1": "Spring", "5": "Summer", "8": "Fall" };
@@ -74,8 +85,9 @@ export class SocService {
 
   /** All courses matching the query, paged via the real last-control-number cursor. */
   async schedule(q: ScheduleQuery): Promise<SocCourse[]> {
-    const { term, dept, courseCode, category = "CWSP", maxPages = 200, ttlMs = TTL.day } = q;
-    const cacheKey = `soc:schedule:${term}:${dept ?? ""}:${courseCode ?? ""}:${category}`;
+    const { term, dept, courseCode, category = "CWSP", maxPages = 200, ttlMs = TTL.day, filters } = q;
+    const filterKey = filters ? JSON.stringify(filters) : "";
+    const cacheKey = `soc:schedule:${term}:${dept ?? ""}:${courseCode ?? ""}:${category}:${filterKey}`;
     const cached = await this.http.cache.get<SocCourse[]>(cacheKey);
     if (cached !== undefined) return cached;
 
@@ -85,6 +97,7 @@ export class SocService {
       const p = new URLSearchParams({ category, term, "last-control-number": String(cursor) });
       if (dept) p.set("dept", dept);
       if (courseCode) p.set("course-code", courseCode);
+      for (const [k, v] of Object.entries(filters ?? {})) p.set(k, v === true ? "true" : String(v));
       const data = await this.http.getJson<SocPage[]>(`${BASE}/schedule/?${p.toString()}`);
       const block = data?.[0];
       if (!block || !Array.isArray(block.COURSES) || block.COURSES.length === 0) break;

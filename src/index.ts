@@ -49,4 +49,4 @@ export type { SocFilters, SocCourse, SocSection, ScheduleQuery } from "./service
 export { ProfessorsService } from "./services/professors.js";
 export type { RmpTeacher, RmpTeacherDetail } from "./services/professors.js";
 export { CatalogService } from "./services/catalog.js";
-export type { CourseLeafCourse } from "./services/catalog.js";
+export type { CourseLeafCourse, ProgramRef } from "./services/catalog.js";
