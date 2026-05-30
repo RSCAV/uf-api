@@ -1,0 +1,249 @@
+{
+  "surfaces": [
+    {
+      "host": "courses.flvc.org (FLVC / FloridaShines course-search backend, ASP.NET MVC + Web API, public). Secondary hosts probed: flscns.fldoe.org (Florida SCNS \u2014 network-unreachable from this env), www.transferology.com (UF's official tool \u2014 CollegeSource, AWS-WAF + login-gated).",
+      "surface": "UF Transfer Course Equivalencies \u2014 \"I took X elsewhere -> UF credit\"",
+      "summary": "UF's own transfer-equivalency tool is Transferology (CollegeSource) \u2014 confirmed account-gated and AWS-WAF protected, NO public/unauth API (equivalency data is \"provided by each institution itself\", behind login). The Florida statewide SCNS site (flscns.fldoe.org) is the canonical equivalency authority but is network-unreachable from this environment (DNS resolves, TCP times out from curl/WebFetch/headless-browser egress \u2014 likely Florida-gov IP/geo firewalling, NOT an SSO wall). THE BIG WIN: FLVC/FloridaShines runs a fully PUBLIC, UNAUTHENTICATED JSON API at courses.flvc.org/api/* that I executed live. /api/Institutions returns all 117 Florida public institutions (UF = InstitutionId 29) and /api/SectionSearch returns SCNS-numbered course data (prefix + number + title + credits + CIP + prereqs + description) for every institution including UF. Because Florida equivalency is defined by the SCNS rule \"same prefix + same last-3-digits = equivalent\" (which UF Admissions itself states), this API IS a usable transfer-equivalency engine: look up a course's SCNS prefix+number at any FL public school, then confirm UF offers the same prefix+number. No login, no key, returns clean JSON. This is the single most usable untapped UF-transfer source found.",
+      "how_to_use": "EQUIVALENCY ALGORITHM via the FLVC public API (no auth): (1) Student says \"I took ENC 1101 at Miami Dade College.\" (2) GET https://courses.flvc.org/api/Institutions once, cache it \u2014 map school name -> InstitutionId (UF=29, MDC=present, all 117 FL public institutions). (3) GET https://courses.flvc.org/api/SectionSearch?keywords=ENC1101&institutions=<sourceId>&groupBy=Course to confirm the source course's exact SCNS prefix+number (CourseDept=\"ENC\", CourseNo=\"1101\"). (4) GET https://courses.flvc.org/api/SectionSearch?keywords=ENC1101&institutions=29&groupBy=Course \u2014 if UF returns a course with the SAME CourseDept+CourseNo, it is a direct statewide equivalent (UF Admissions' own rule: matching prefix + last-3-digits = equivalent). UF's ENC 1101 = \"Expository and Argumentative Writing\", 3 cr, CIP 23 \u2014 verified live. (5) For richer data (prereqs, description, credits) GET /api/SectionSearch/{SectionId}. CAVEATS: this only covers Florida PUBLIC institutions in SCNS (covers the bulk of FL community-college transfers into UF \u2014 the dominant Gradvisr transfer case); out-of-state / private schools and UF's non-SCNS course-by-course exceptions still need Transferology/manual SCNS. Send a realistic browser User-Agent + X-Requested-With: XMLHttpRequest + Referer https://courses.flvc.org/Courses/Search/. Data is term-scoped (currently 2026 terms) \u2014 a course only appears if a section is published that term, so cache results and don't treat absence as 'not offered'. For the authoritative statewide equivalency (incl. historical/discontinued courses) hit flscns.fldoe.org from a non-sandboxed (ideally Florida-region) host \u2014 it is public, just firewalled here.",
+      "endpoints": [
+        {
+          "name": "FLVC Institutions list (school -> InstitutionId map)",
+          "url": "https://courses.flvc.org/api/Institutions",
+          "method": "GET",
+          "params": "none",
+          "returns": "JSON array of 117 Florida public institutions. Keys per item: Abbreviation, Name, DisplayName, InstitutionId, InstitutionType (1=Public University), City, State, FiceCode, SchoolNumber, DistrictNumber, ProfileUrl, Latitude/Longitude, Address. UF = {InstitutionId:29, Abbreviation:'UF', DisplayName:'University of Florida', InstitutionType:1, City:'Gainesville'}.",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "One-time cached lookup table to translate a student's stated source school into the InstitutionId needed for SectionSearch. Also seeds Gradvisr's list of valid FL transfer-origin institutions.",
+          "sample_response": "[{\"Abbreviation\":\"EFSC\",\"DisplayName\":\"Eastern Florida State College\",...},{\"Abbreviation\":\"UF\",\"InstitutionId\":29,\"DisplayName\":\"University of Florida\",\"InstitutionType\":1,\"City\":\"Gainesville\"}] (117 items, 70KB)"
+        },
+        {
+          "name": "FLVC SectionSearch (statewide SCNS course search \u2014 the equivalency engine)",
+          "url": "https://courses.flvc.org/api/SectionSearch",
+          "method": "GET",
+          "params": "keywords (e.g. ENC1101 or 'writing'), institutions (comma CSV of InstitutionIds, e.g. 29 for UF), institutionTypes, term, termStart, termEnd, credits, cipCode (2-digit), deliveryMethods, courseTypes, courseAvailability, orderBy (default CourseTitle), pageSize (default 25), groupBy (Course|Term \u2014 use Course to dedupe to course level), registrationOnly. All optional.",
+          "returns": "JSON {Results:{Items:[...]}}. Per item: SectionId, CourseId, InstitutionId, InstitutionName, CourseDept (SCNS prefix e.g. 'ENC'), CourseNo (SCNS number e.g. '1101'), CourseTitle, MinCredits/MaxCredits, CreditTypeDisplay, CourseLevelDisplay (Undergraduate), CipChoiceId, CipSubjectTitle, AcademicYear, AcademicTermDisplay, ForCredit, plus award/quality indicators. CourseDept+CourseNo = the SCNS identity that drives equivalency.",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "THE core call. Resolve a source course's SCNS prefix+number, then re-query institutions=29 to check UF offers the same prefix+number = direct equivalent. Also a general UF/Florida course catalog with credits + CIP for the planner.",
+          "sample_response": "{\"Results\":{\"Items\":[{\"SectionId\":3435513,\"InstitutionId\":29,\"InstitutionName\":\"University of Florida\",\"CourseDept\":\"ENC\",\"CourseNo\":\"1101\",\"CourseTitle\":\"Expository and Argumentative Writing\",\"MinCredits\":3.00,\"CipChoiceId\":\"23\",\"AcademicTermDisplay\":\"2026 Summer\",\"CourseLevelDisplay\":\"Undergraduate\"}]}}"
+        },
+        {
+          "name": "FLVC Section/Course detail (prereqs, description, credits)",
+          "url": "https://courses.flvc.org/api/SectionSearch/{SectionId}",
+          "method": "GET",
+          "params": "path: SectionId (from SectionSearch Items)",
+          "returns": "JSON with CourseDescription, CoursePrereqs (text incl. Gordon Rule / Core flags), EnrollProcedure, RegistrarUrl, ReferenceNumber, InstructorEmail, ModesOfInteraction, OnCampusRequirements. ~6KB.",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "enrichment",
+          "gradvisr_use": "Pull prerequisite chains + course descriptions for matched courses \u2014 feeds Gradvisr's prereq graph and Gordon Rule / writing-requirement detection (relevant to the writing-24cr FINDING-D oracle rule).",
+          "sample_response": "{\"CourseDescription\":\"...\",\"CoursePrereqs\":\"College Writing 1 ... Writing Across Curriculum (Gordon Rule) ... This is a Core Curriculum course.\",\"RegistrarUrl\":\"http://www.fau.edu/registrar/\",\"ReferenceNumber\":\"11330\"}"
+        },
+        {
+          "name": "Course detail HTML (raw mode, same data as MVC view)",
+          "url": "https://courses.flvc.org/Courses/SectionDetails/{SectionId}?mode=raw",
+          "method": "GET",
+          "params": "path SectionId; query mode=raw",
+          "returns": "Server-rendered HTML fragment of course detail (used by the Angular app). Same underlying data as /api/SectionSearch/{id} but HTML, not JSON \u2014 prefer the JSON endpoint.",
+          "auth_required": false,
+          "live_2026": "unknown",
+          "confidence": "likely",
+          "gradvisr_relevance": "heritage",
+          "gradvisr_use": "Fallback if the JSON detail endpoint shape changes; otherwise unused.",
+          "sample_response": "(HTML fragment \u2014 not tested live; referenced in SectionSearchService.js as /Courses/SectionDetails/{0}?mode=raw)"
+        },
+        {
+          "name": "UF Transferology (official UF transfer-equivalency tool \u2014 CollegeSource)",
+          "url": "https://www.transferology.com/school/ufl",
+          "method": "GET (UI); internal search is POST behind login",
+          "params": "Search requires authenticated account; equivalency matching is account-gated.",
+          "returns": "Landing page only without login (HTTP 202 to curl via AWS-WAF; full SPA in browser). Real equivalency search/results require a free Transferology account. Backend: CollegeSource. AWS-WAF challenge (awswaf.com token) on all requests. index.js bundle is 2.1MB landing-only; the search/equivalency endpoints live in a post-login bundle not reachable unauthenticated.",
+          "auth_required": true,
+          "live_2026": "forbidden",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "none",
+          "gradvisr_use": "This is UF's OFFICIAL answer to 'will my course transfer', but it is login + WAF gated \u2014 NOT usable as a public API. Use only as a manual human fallback for out-of-state/private/edge cases the FLVC+SCNS path can't resolve. Do not scrape (AWS-WAF + ToS).",
+          "sample_response": "Landing page: 'Create a free account to view your college transfer options instantly. Course equivalency data is provided by each institution itself.' 'Powered by CollegeSource'. Search yields no data without login."
+        },
+        {
+          "name": "Florida SCNS public course/equivalency search (statewide authority)",
+          "url": "https://flscns.fldoe.org/Default.aspx",
+          "method": "GET (ASP.NET WebForms; 'Find A Course' -> Find an Institution / Find an Institution Course / Find a Statewide Course)",
+          "params": "WebForms postback (no clean REST API; .aspx pages with viewstate). Per docs: institution + prefix + course-number search.",
+          "returns": "UNKNOWN from this env \u2014 DNS resolves but TCP connection times out from curl, WebFetch, and headless Chromium (firewalled/geo-restricted, NOT SSO-walled). This is the canonical statewide equivalency source (defines the prefix+last-3-digits rule). Public, no login per UF/FSU/UNF documentation and the SCNS Public User Manual.",
+          "auth_required": false,
+          "live_2026": "unknown",
+          "confidence": "likely",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "The authoritative equivalency source incl. historical/discontinued courses and faculty-determined equivalencies beyond exact-number matches. Hit it from a non-sandboxed (ideally Florida-region) host or server. For now, FLVC /api/SectionSearch is the reachable proxy for the same SCNS data on current-term courses.",
+          "sample_response": "(Unreachable from this environment \u2014 connection timed out after 20s, three egress paths tried. Confirmed public/no-login per SCNS Public User Training Manual PDF at flscns.fldoe.org/LinkUploads/.)"
+        }
+      ],
+      "new_discoveries": [
+        "courses.flvc.org/api/SectionSearch and /api/Institutions are PUBLIC, unauthenticated, key-less JSON endpoints returning SCNS-numbered course data for all 117 Florida public institutions including UF (InstitutionId 29) \u2014 verified live with real responses.",
+        "Florida equivalency reduces to a deterministic rule UF Admissions states itself: matching SCNS prefix + last-3-digits = equivalent course. Confirmed live: UF ENC 1101 and FAU ENC 1101 share prefix+number. This means the FLVC API IS a working transfer-equivalency engine for FL public-school transfers \u2014 no scraping of Transferology needed.",
+        "UF's official tool Transferology (CollegeSource) is login + AWS-WAF gated \u2014 definitively NO public API. Rules it out as a programmatic source; it is a manual-fallback only.",
+        "flscns.fldoe.org (the statewide SCNS authority) is public/no-login but network-unreachable from this sandbox (TCP timeout across curl/WebFetch/headless browser) \u2014 record as 'reachable from a real/FL host', not as a wall.",
+        "The FLVC API is term-scoped (only returns courses with a published section in the queried term) \u2014 for a stable course catalog, query without term filter and cache; treat absence as 'no current section', not 'course does not exist'.",
+        "Course detail endpoint /api/SectionSearch/{id} exposes CoursePrereqs text including Gordon Rule / Core Curriculum flags \u2014 directly useful for Gradvisr's prereq graph and writing/civic-literacy requirement detection."
+      ],
+      "recommendations": [
+        "BUILD: a Gradvisr 'FL transfer equivalency' module on courses.flvc.org/api \u2014 cache /api/Institutions (school->id, refresh monthly), then for any 'I took <PREFIX NUM> at <FL school>' do the 2-step SCNS-match (source course -> confirm UF offers same CourseDept+CourseNo). Covers the dominant UF transfer case (FL community-college / state-college transfers).",
+        "Treat Transferology as out of reach programmatically \u2014 surface it as a 'verify on UF's official tool' link for out-of-state/private/edge cases only. Do NOT scrape (AWS-WAF + ToS).",
+        "Run a one-time SCNS authoritative pull from a non-sandboxed host (a Vercel/VPS server, ideally US/FL egress) against flscns.fldoe.org to capture historical + faculty-determined equivalencies that exact-number matching misses; reconcile against the FLVC current-term data. Verify reachability there first.",
+        "Use Scrapling/StealthyFetcher only if FLVC ever adds bot protection \u2014 currently plain UA + X-Requested-With + Referer suffices, so a simple fetch client is enough. Always pass --ai-targeted if scraping any HTML detail pages.",
+        "Persist the FLVC course corpus (prefix, number, title, credits, CIP, prereqs) into Gradvisr's catalog/vector store via the existing RAG-Anything pipeline so transfer-equivalency and degree-planning share one source of truth.",
+        "Cache aggressively and rate-limit to ~1 req/course \u2014 this is a public state service; keep usage light and well-behaved."
+      ]
+    },
+    {
+      "surface": "UF OIPR grade distributions via Tableau Public (profile uf.oipr4918, workbook DegreesandGrades19) \u2014 per-course grade-letter distributions = Gradvisr difficulty signal",
+      "host": "public.tableau.com (data) + ir.aa.ufl.edu (discovery/embed)",
+      "summary": "VERIFIED LIVE end-to-end. The UF IR grades page (ir.aa.ufl.edu/facts/grades/) embeds Tableau Public workbook DegreesandGrades19 (title \"Grades 19\", 32,911 views, lastUpdate 2025-08), authored by UF_OIPR under profile uf.oipr4918. Workbook has TWO sheets: UndergraduateGrades (chart) and UndergraduateGradesTable (display name \"Undergraduate Grades Table\" \u2014 the tabular data). The data is fully public/unauth and extractable via the standard Tableau Public 2-POST vizql sequence (bertrandmartel/tableau-scraping pattern), which I executed live via Playwright network capture. The bootstrapSession response (512KB) contains the entire grade table: thousands of course codes (AA0202, MAC2311-style 2-4 letter + 4 digit + optional suffix), term labels Fall 2014 \u2192 Fall 2024, and grade-letter columns A/A-/B+/B/B-/C+/C/C-/D+/D/D-/E plus deptname/grade/demo_time_frame dimensions. CRITICAL 2026 CHANGE: the old inline-config approach (tsConfigContainer textarea in the embed HTML) is now EMPTY \u2014 Tableau mints the session client-side via PreBootstrap.min.js. You can no longer scrape the session id from static HTML; you must either drive a headless browser OR replicate the two POSTs (startSession then bootstrapSession) directly with the cookies Tableau sets. The profile metadata APIs (single workbook + profile workbook list) ARE pure unauth JSON and work perfectly via curl. Coverage: all UF undergraduate courses, ~10 years of terms, department-level. Per-INSTRUCTOR granularity does NOT appear in this workbook (dimensions are deptname/course/grade/term only) \u2014 instructor-level difficulty would need RateMyProfessor, not this source. Avg-GPA is not a stored column; Gradvisr must COMPUTE it from the grade-letter counts (sum(grade_points * count)/total), and withdrawal-rate from W/WF counts \u00f7 total \u2014 both are derivable from the returned distribution.",
+      "how_to_use": "EXTRACTION RECIPE (verified-live). DISCOVERY: (1) GET ir.aa.ufl.edu/facts/grades/ \u2192 grep params: name='DegreesandGrades19/UndergraduateGrades', host_url='public.tableau.com'. (2) GET public.tableau.com/profile/api/workbook/DegreesandGrades19 \u2192 JSON lists profileName=uf.oipr4918 and the 2 viewInfos (sheetRepoUrl DegreesandGrades19/sheets/UndergraduateGrades + .../UndergraduateGradesTable). (3) GET public.tableau.com/profile/api/uf.oipr4918 \u2192 profile root (77 visible workbooks). (4) GET public.tableau.com/public/apis/workbooks?profileName=uf.oipr4918&start=0&count=50&visibility=NON_HIDDEN (count max 50, must page start=0 then start=50; visibility param REQUIRED) \u2192 full workbook inventory incl DegreesDashboard, Graduation_RetentionRates, EnrollmentHeadcount, GenEdCourses2, CourseManagementDrilldown. DATA EXTRACTION (the 2-POST vizql sequence): STEP A \u2014 POST https://public.tableau.com/vizql/w/DegreesandGrades19/v/UndergraduateGradesTable/startSession/viewing?:embed=y&:showVizHome=no&:redirect=auth (empty/minimal body) \u2192 200, returns a session id of form A8E7E1435F6D44EE8C12CE2890DC31F9-0:0 and sets cookies. STEP B \u2014 POST https://public.tableau.com/vizql/w/DegreesandGrades19/v/UndergraduateGradesTable/bootstrapSession/sessions/<SESSION_ID> with form body containing sheet_id=Undergraduate%20Grades%20Table (NOTE: display name with spaces, NOT the URL slug UndergraduateGradesTable), worksheetPortSize={w:900,h:900}, clientDimension, stickySessionKey (workbookId 6327202, lastUpdatedAt 1754517615924), locale=en_US \u2014 full captured body is in this report's sample. \u2192 200, returns text/javascript with TWO length-prefixed JSON segments: format is `<len>;<json><len>;<json>` (e.g. `376832;{\"sheetName\":\"Undergraduate Grade...\"}135183;{...}`). PARSE: read the integer before each `;`, slice that many chars, JSON.parse each. The data dictionary (dataDictionary/dataColumns + value tuples) holds course codes, terms, and per-grade-letter counts. PRACTICAL NOTE: easiest reliable impl is python `tableauscraper` lib (TableauScraper().loads(url); wb.getWorksheet('Undergraduate Grades Table').data \u2192 pandas DataFrame) which wraps exactly these two POSTs \u2014 points it at https://public.tableau.com/views/DegreesandGrades19/UndergraduateGradesTable. To get per-COURSE rows you may need to apply a categorical filter (wb.getWorksheet(...).setFilter('deptname', X)) which fires an extra set-categorical-filter + render XHR; the unfiltered bootstrap already returns the full dept/grade/term value set. COMPUTE difficulty_tier: avg_gpa = \u03a3(grade_points[letter]*count)/\u03a3count with A=4.0,A-=3.67,B+=3.33,...E=0; withdrawal_rate = (W+WF counts)/total enrolled. Run on a schedule (ingest once per term update ~Aug); ~3 requests for discovery + 2 POSTs per sheet.",
+      "endpoints": [
+        {
+          "name": "UF IR grades discovery page (Tableau embed source)",
+          "url": "https://ir.aa.ufl.edu/facts/grades/",
+          "method": "GET",
+          "params": "none",
+          "returns": "HTML/WordPress page; embeds the tableauViz with param name='DegreesandGrades19/UndergraduateGrades', host_url='public.tableau.com', static_image PNG. This is where you discover the exact workbook+sheet names.",
+          "sample_response": "<param name='name' value='DegreesandGrades19/UndergraduateGrades' /><param name='host_url' value='https://public.tableau.com/' />",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "Discovery anchor \u2014 confirms which Tableau workbook is the canonical UF grade-distribution source and that it's the '19' workbook (current as of 2025-08 update)."
+        },
+        {
+          "name": "Tableau Public single-workbook metadata API",
+          "url": "https://public.tableau.com/profile/api/workbook/DegreesandGrades19",
+          "method": "GET",
+          "params": "path: workbook repo name",
+          "returns": "JSON: defaultViewName, authorName=UF_OIPR, profileName=uf.oipr4918, viewCount, lastUpdateDate, title, blogUrl, viewInfos[] (sheetRepoUrl + sheetTitle for each sheet)",
+          "sample_response": "{\"defaultViewName\":\"Undergraduate Grades\",\"authorName\":\"UF_OIPR\",\"profileName\":\"uf.oipr4918\",\"viewCount\":32911,\"lastUpdateDate\":1754517615924,\"title\":\"Grades 19\",\"viewInfos\":[{\"sheetRepoUrl\":\"DegreesandGrades19/sheets/UndergraduateGrades\",\"sheetTitle\":\"Undergraduate Grades\"},{\"sheetRepoUrl\":\"DegreesandGrades19/sheets/UndergraduateGradesTable\",\"sheetTitle\":\"Undergraduate Grades Table\"}]}",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "Enumerate the workbook's sheets and get lastUpdateDate to detect new-term refreshes; confirms profile id uf.oipr4918 for the full workbook list."
+        },
+        {
+          "name": "Tableau Public profile root metadata",
+          "url": "https://public.tableau.com/profile/api/uf.oipr4918",
+          "method": "GET",
+          "params": "path: profileName",
+          "returns": "JSON: profileName, name=UF_OIPR, visibleWorkbookCount=77, followers, websites[] (includes ir.aa.ufl.edu)",
+          "sample_response": "{\"profileName\":\"uf.oipr4918\",\"name\":\"UF_OIPR\",\"visibleWorkbookCount\":77,\"totalNumberOfFollowers\":28,\"websites\":[{\"url\":\"https://ir.aa.ufl.edu/...\"}]}",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "enrichment",
+          "gradvisr_use": "Confirms the UF OIPR profile and total workbook count (77) for inventory scoping."
+        },
+        {
+          "name": "Tableau Public profile workbooks list",
+          "url": "https://public.tableau.com/public/apis/workbooks?profileName=uf.oipr4918&start=0&count=50&visibility=NON_HIDDEN",
+          "method": "GET",
+          "params": "profileName (required), start (paginate 0,50,...), count (max 50), visibility=NON_HIDDEN (REQUIRED or 400)",
+          "returns": "JSON {contents:[{workbookRepoUrl,title,defaultViewName,viewCount,defaultViewRepoUrl,authorProfileName}], startIndex, nextIndex}. 77 workbooks total across 2 pages.",
+          "sample_response": "{\"contents\":[{\"workbookRepoUrl\":\"DegreesandGrades19\",\"title\":\"Grades 19\",\"defaultViewName\":\"Undergraduate Grades\",\"viewCount\":32911,\"defaultViewRepoUrl\":\"DegreesandGrades19/UndergraduateGrades\"},{\"workbookRepoUrl\":\"DegreesDashboard\",\"title\":\"Degrees Dashboard\",\"viewCount\":81402},{\"workbookRepoUrl\":\"Graduation_RetentionRates\",\"title\":\"Graduation_RetentionRates\",\"viewCount\":34394},{\"workbookRepoUrl\":\"GenEdCourses2\",\"title\":\"GenEd Courses2\"},{\"workbookRepoUrl\":\"CourseManagementDrilldown\"}, ...],\"nextIndex\":50}",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "Full UF OIPR data catalog \u2014 beyond grades, surfaces Graduation_RetentionRates, DegreesDashboard, EnrollmentHeadcount, GenEdCourses2, CourseManagementDrilldown, EnrollmentGeographic \u2014 all candidate Gradvisr data feeds. Note count max=50, must page start=0 then start=50."
+        },
+        {
+          "name": "Tableau vizql startSession (mint session id)",
+          "url": "https://public.tableau.com/vizql/w/DegreesandGrades19/v/UndergraduateGradesTable/startSession/viewing?:embed=y&:showVizHome=no&:redirect=auth",
+          "method": "POST",
+          "params": "path: /w/<WORKBOOK>/v/<SHEET_SLUG>/; query :embed=y :showVizHome=no :redirect=auth; minimal/empty form body",
+          "returns": "200; mints a session id of form A8E7E1435F6D44EE8C12CE2890DC31F9-0:0 used in the next call; sets session cookies. (Captured live via Playwright request #13.)",
+          "sample_response": "session id A8E7E1435F6D44EE8C12CE2890DC31F9-0:0 (in response/headers)",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "STEP A of the 2-POST data extraction. Required because the 2026 Tableau Public no longer inlines the session id in the embed HTML (tsConfigContainer textarea is empty)."
+        },
+        {
+          "name": "Tableau vizql bootstrapSession (returns the grade table data)",
+          "url": "https://public.tableau.com/vizql/w/DegreesandGrades19/v/UndergraduateGradesTable/bootstrapSession/sessions/<SESSION_ID>",
+          "method": "POST",
+          "params": "form body: sheet_id=Undergraduate%20Grades%20Table (DISPLAY name w/ spaces, not slug), worksheetPortSize={w:900,h:900}, clientDimension, stickySessionKey={...workbookId:6327202,lastUpdatedAt:1754517615924...}, locale=en_US, language=en, renderMapsClientSide=true, isBrowserRendering=true",
+          "returns": "~512KB text/javascript, TWO length-prefixed JSON segments (376832;{...}135183;{...}). Contains sheetName 'Undergraduate Grades Table', dataDictionary with course codes (AA0202, ABF4380, ... thousands), term labels (Fall 2014\u2013Fall 2024), grade-letter columns (A,A-,B+,B,B-,C+,C,C-,D+,D,D-,E), and dimensions deptname/grade/demo_time_frame. Parse by reading int before each ';' and slicing.",
+          "sample_response": "376832;{\"sheetName\":\"Undergraduate Grades Table\",...dataDictionary with course codes + grade letters A/A-/B+/.../E + Fall 2014-2024 terms...}135183;{...presentation model...}",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "core",
+          "gradvisr_use": "STEP B \u2014 THE data payload. Carries the full per-course grade-letter distribution across ~10 years of terms. Gradvisr computes avg_gpa and withdrawal_rate from these counts to make difficulty_tier objective. Recommend wrapping with python 'tableauscraper' lib which automates both POSTs and returns a pandas DataFrame."
+        },
+        {
+          "name": "Tableau embed view shell (legacy inline-config path \u2014 NOW BROKEN)",
+          "url": "https://public.tableau.com/views/DegreesandGrades19/UndergraduateGradesTable?:embed=y&:showVizHome=no",
+          "method": "GET",
+          "params": ":embed=y :showVizHome=no",
+          "returns": "200 but ~6.5KB SPA shell with an EMPTY <textarea id='tsConfigContainer'></textarea>. In older Tableau this textarea held the session JSON; in 2026 it is populated client-side by PreBootstrap.min.js, so static curl scraping of the session id FAILS here. Loads d1ixzvs6g7du49.cloudfront.net vizql bundle v_202612605121609.",
+          "sample_response": "<textarea id=\"tsConfigContainer\"></textarea> (empty \u2014 no inline session)",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "heritage",
+          "gradvisr_use": "Documents the 2026 breaking change: the classic bertrandmartel inline-config scrape no longer yields the session id from static HTML. Use the startSession+bootstrapSession POSTs (or a headless browser / tableauscraper lib) instead."
+        },
+        {
+          "name": "Tableau static preview image (sanity/coverage check)",
+          "url": "https://public.tableau.com/static/images/De/DegreesandGrades19/UndergraduateGrades/1.png",
+          "method": "GET",
+          "params": "none",
+          "returns": "PNG snapshot of the rendered chart; referenced from the IR embed as static_image fallback.",
+          "sample_response": "(binary PNG)",
+          "auth_required": false,
+          "live_2026": "live",
+          "confidence": "likely",
+          "gradvisr_relevance": "heritage",
+          "gradvisr_use": "Cheap visual sanity-check that the workbook still renders; not a data source."
+        },
+        {
+          "name": "Profile workbooks (404 dead-end variants \u2014 do NOT use)",
+          "url": "https://public.tableau.com/profile/api/uf.oipr4918/workbooks?count=100&index=0",
+          "method": "GET",
+          "params": "various",
+          "returns": "404. Also /profile/api/workbooks?profileName=... \u2192 400 'No entity'. The /api/search/query?...profileId= \u2192 404. The ONLY working list endpoint is /public/apis/workbooks (see above).",
+          "sample_response": "{\"error\":{\"message\":\"No entity found!\"}}",
+          "auth_required": false,
+          "live_2026": "dead",
+          "confidence": "verified-live",
+          "gradvisr_relevance": "none",
+          "gradvisr_use": "Recorded as dead ends so the ingestion code uses the correct /public/apis/workbooks path with visibility=NON_HIDDEN and count<=50."
+        }
+      ],
+      "new_discoveries": [
+        "Profile id is uf.oipr4918 (UF_OIPR), 77 visible public workbooks \u2014 a large untapped UF institutional-data catalog for Gradvisr beyond grades.",
+        "The grades workbook is DegreesandGrades19 ('Grades 19'), workbookId 6327202, last updated 2025-08-06 (epoch 1754517615924). Older versions also public: DegreesandGrades17, DegreesandGrades10_30, DegreesandGrades.",
+        "Two sheets in the workbook: UndergraduateGrades (chart) and UndergraduateGradesTable (the tabular data \u2014 display name 'Undergraduate Grades Table' with spaces, which is the sheet_id you POST).",
+        "Coverage confirmed from live bootstrap: Fall 2014 through Fall 2024 term labels present, thousands of UF course codes, full grade-letter granularity (A,A-,B+,B,B-,C+,C,C-,D+,D,D-,E). Dimensions are deptname/grade/demo_time_frame.",
+        "NO per-instructor granularity in this workbook \u2014 instructor-level difficulty must come from RateMyProfessor, not UF OIPR. Avg-GPA and withdrawal-rate are NOT stored columns; Gradvisr must compute them from the grade-letter counts.",
+        "BREAKING 2026 CHANGE: Tableau Public's embed HTML tsConfigContainer textarea is now empty (session minted client-side by PreBootstrap.min.js). The classic static-HTML session scrape is dead; must use the startSession+bootstrapSession POST pair or a headless browser. Captured the exact two-request sequence live via Playwright.",
+        "Adjacent high-value UF OIPR workbooks discovered in the same profile: Graduation_RetentionRates (34k views), DegreesDashboard (81k), EnrollmentHeadcount, GenEdCourses2, CourseManagementDrilldown, EnrollmentGeographic \u2014 all unauth-scrapable via the same vizql recipe."
+      ],
+      "recommendations": [
+        "Use the python 'tableauscraper' (tableau-scraping by bertrandmartel) library in the Gradvisr ingestion job \u2014 point TableauScraper().loads('https://public.tableau.com/views/DegreesandGrades19/UndergraduateGradesTable') and read wb.getWorksheet('Undergraduate Grades Table').data into a DataFrame. It automates the exact startSession+bootstrapSession POSTs verified here and survives the 2026 inline-config breakage.",
+        "Compute difficulty_tier server-side: avg_gpa = \u03a3(points[letter]*count)/\u03a3count (A=4.0, A-=3.67, B+=3.33, B=3.0, B-=2.67, C+=2.33, C=2.0, C-=1.67, D+=1.33, D=1.0, D-=0.67, E=0.0); withdrawal_rate = (W+WF)/total. Bucket into tiers (e.g. avg_gpa<2.7 = hard, 2.7-3.3 = medium, >3.3 = easy) and store per course code.",
+        "Poll the single-workbook metadata API (lastUpdateDate field) to detect new-term refreshes \u2014 re-ingest only when lastUpdateDate changes (~once each August), keeping requests minimal.",
+        "Pair this dept/course-level grade data with RateMyProfessor for the instructor dimension this workbook lacks, and with the UF Schedule of Courses scraper (already in Gradvisr's roadmap) to map course codes to current sections.",
+        "Also ingest Graduation_RetentionRates and GenEdCourses2 from the same uf.oipr4918 profile via the identical vizql recipe \u2014 they enrich Gradvisr's planning model (gen-ed difficulty, retention signals) at near-zero marginal cost.",
+        "Cache the bootstrap response (it's ~512KB) and the parsed table; never hammer vizql \u2014 2 POSTs per sheet per term-refresh is plenty. Set User-Agent and reuse the session cookie within a single extraction.",
+        "Record the 404 dead-end list-endpoints in code comments so future maintainers don't retry them; the only working catalog endpoint is /public/apis/workbooks?profileName=...&start=0&count=50&visibility=NON_HIDDEN (paged)."
+      ]
+    }
+  ]
+}

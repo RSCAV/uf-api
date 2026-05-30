@@ -25,14 +25,21 @@ async function main() {
     console.log(`  ${prof.firstName} ${prof.lastName} — difficulty ${prof.avgDifficulty} -> tier "${tier}" (${prof.numRatings} ratings)`);
   }
 
-  console.log("\n→ uf.catalog.course('EEL3135')");
+  console.log("\n→ uf.catalog.course('EEL3135') + subject('EEL') + referencingPrograms");
   const cat = await uf.catalog.course("EEL3135");
-  if (cat) {
-    console.log(`  ${cat.code} — ${cat.title} (${cat.credits}cr)`);
-    console.log(`  prereq edges: ${cat.prereqLinkedCodes.join(", ")} | all codes: ${cat.prereqAllCodes.length}`);
-  }
+  if (cat) console.log(`  ${cat.code} — ${cat.title} (${cat.credits}cr); prereq edges: ${cat.prereqLinkedCodes.join(", ")}`);
+  const subj = await uf.catalog.subject("EEL");
+  console.log(`  catalog.subject('EEL'): ${subj.length} courses in one request`);
 
-  console.log("\n✓ one client, three live UF sources, cached + rate-limited.");
+  console.log("\n→ uf.transfer.findUFEquivalent('ENC', '1101')");
+  const equiv = await uf.transfer.findUFEquivalent("ENC", "1101");
+  if (equiv) console.log(`  ${equiv.CourseDept} ${equiv.CourseNo} — ${equiv.CourseTitle} (${equiv.MinCredits}cr) is the UF equivalent`);
+
+  console.log("\n→ uf.grades.workbookMeta()");
+  const meta = await uf.grades.workbookMeta();
+  console.log(`  "${meta.title}" by ${meta.authorName} — ${meta.viewCount} views (UF per-course grade distributions)`);
+
+  console.log("\n✓ one client, five live UF sources (soc, professors, catalog, transfer, grades), cached + rate-limited.");
 }
 
 main().catch((e) => {
