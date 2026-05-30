@@ -1,0 +1,32 @@
+{
+  "name": "uf-api",
+  "version": "1.0.0",
+  "description": "Verified, public-only catalog and clients for University of Florida web APIs. A 2026 revival of Rolstenhouse/uf_api.",
+  "type": "module",
+  "scripts": {
+    "soc": "tsx clients/soc-client.ts",
+    "rmp": "tsx clients/rmp-client.ts",
+    "courseleaf": "tsx clients/courseleaf-client.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "university-of-florida",
+    "uf",
+    "schedule-of-courses",
+    "ratemyprofessors",
+    "courseleaf",
+    "api",
+    "course-catalog"
+  ],
+  "author": "Rodrigo Casanova-Aleman (RSCAV)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RSCAV/uf-api.git"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.15.0",
+    "typescript": "^5.4.5"
+  }
+}
