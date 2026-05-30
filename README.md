@@ -86,9 +86,36 @@ This catalog was assembled to power [Gradvisr](https://github.com/RSCAV), an AI 
 
 What the API cannot do for the planner: live seat availability and schedule-conflict detection. Those fields are dead. Treat them as a product constraint, not a bug.
 
-## Clients
+## SDK (recommended)
 
-Three small, dependency-free TypeScript clients in [`clients/`](./clients) wrap the live endpoints. Each is self-contained and runnable on its own (Node 20+, `tsx`):
+One client over every UF source, with caching and polite rate limiting built in. Source in [`src/`](./src):
+
+```ts
+import { createClient } from "uf-api";
+
+const uf = createClient();                                  // optional: { cache, userAgent, minDelayMs, timeoutMs }
+
+const filters = await uf.soc.filters("2268");               // 49 terms, 203 departments
+const courses = await uf.soc.schedule({ term: "2268", dept: "19050000" });
+const offered = await uf.soc.offeredIndex(["2261", "2265", "2268"]); // which seasons each course runs
+
+const prof = await uf.professors.resolve("Nicholas Napoli", "EEL3135");
+const tier = uf.professors.difficultyTier(prof!.avgDifficulty, prof!.numRatings); // "easy" | "medium" | "hard"
+
+const course = await uf.catalog.course("EEL3135");          // description + machine-extractable prereq edges
+```
+
+```bash
+npm install
+npm run demo        # drives all three services through one client
+npm run discover    # auto-discovers UF's apix surface (the bundle-grep tactic, in code)
+```
+
+Services: `uf.soc` (Schedule of Courses), `uf.professors` (RateMyProfessors), `uf.catalog` (CourseLeaf). Responses are cached by volatility (filters and descriptions for days, professor ratings for a week), and all requests share one rate limiter.
+
+## Single-file clients
+
+Prefer to copy one file with no SDK? Three dependency-free clients in [`clients/`](./clients) wrap the same endpoints standalone (Node 20+, `tsx`):
 
 | Client | What it does | Run |
 |---|---|---|
