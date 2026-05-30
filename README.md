@@ -111,7 +111,7 @@ npm run demo        # drives all three services through one client
 npm run discover    # auto-discovers UF's apix surface (the bundle-grep tactic, in code)
 ```
 
-Services: `uf.soc` (Schedule of Courses), `uf.professors` (RateMyProfessors), `uf.catalog` (CourseLeaf). Responses are cached by volatility (filters and descriptions for days, professor ratings for a week), and all requests share one rate limiter.
+Services: `uf.soc` (Schedule of Courses), `uf.professors` (RateMyProfessors), `uf.catalog` (CourseLeaf — single course, `subject()` bulk crawl, `referencingPrograms()` reverse graph), `uf.transfer` (Florida SCNS transfer-equivalency via FLVC — `findUFEquivalent("ENC","1101")`), and `uf.grades` (UF OIPR grade distributions). Responses are cached by volatility (filters and descriptions for days, professor ratings for a week), and all requests share one rate limiter.
 
 ## Single-file clients
 
