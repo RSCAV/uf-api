@@ -4,12 +4,13 @@
 // distributions in the "Grades 19" workbook (profile uf.oipr4918, workbook DegreesandGrades19,
 // sheet UndergraduateGradesTable). Discovered from ir.aa.ufl.edu/facts/grades/.
 //
-// The metadata/discovery endpoints below are clean public JSON. Extracting the tabular grade
-// data requires Tableau's vizql bootstrap handshake, which returns a concatenated
-// "length;json length;json" payload — `bootstrapRaw()` performs the handshake and returns the
-// raw payload; parsing the dataDictionary into course->grade-counts is best done with a
-// dedicated Tableau parser (see bertrandmartel/tableau-scraping). This is the real source for
-// turning a guessed difficulty signal into objective average-GPA / withdrawal-rate data.
+// The metadata/discovery endpoints below are clean public JSON and are the stable surface.
+// Extracting the tabular grade data needs Tableau's vizql data handshake. VERIFIED 2026-05-30:
+// modern Tableau Public no longer inlines the session in the embed (the tsConfigContainer comes
+// back empty; the session is minted by client JS), so a plain server-side POST does NOT work.
+// To pull the per-course grade table, drive the viz in a headless browser (Playwright) and
+// intercept the bootstrapSession response, or use a maintained scraper (bertrandmartel/
+// tableau-scraping). That is the path to objective average-GPA / withdrawal-rate difficulty.
 
 import type { Http } from "../core/http.js";
 import { TTL } from "../core/cache.js";
@@ -63,25 +64,18 @@ export class GradesService {
   }
 
   /**
-   * EXPERIMENTAL: perform the Tableau vizql bootstrap handshake and return the raw payload
-   * (a concatenated "length;json length;json" string containing the dataDictionary with course
-   * codes + grade letters). Parsing it into structured rows is non-trivial and brittle across
-   * Tableau versions — for production use, feed this payload to a Tableau parser, or run the
-   * documented recipe with bertrandmartel/tableau-scraping. Returns the raw text or throws.
+   * Fetch the raw embed HTML for the grades view. NOTE (verified 2026-05-30): modern Tableau
+   * Public no longer inlines the session in the embed — the `tsConfigContainer` textarea comes
+   * back EMPTY and the session is minted dynamically by the page's PreBootstrap JS. So the old
+   * "GET embed -> parse sessionid -> POST bootstrapSession" recipe does NOT work for this viz.
+   *
+   * To extract the actual per-course grade table, drive the viz in a headless browser
+   * (Playwright) and intercept the `bootstrapSession` response, or use a maintained Tableau
+   * scraper such as bertrandmartel/tableau-scraping (it keeps up with Tableau's protocol churn).
+   * The metadata methods above (workbookMeta / workbooks) are the clean, stable JSON surface;
+   * `previewImageUrl()` gives a static snapshot for coverage checks.
    */
-  async bootstrapRaw(workbook = GRADES_WORKBOOK, sheet = GRADES_SHEET): Promise<string> {
-    // 1. Load the embed to mint a session (the modern flow returns a session via Set-Cookie /
-    //    the bootstrap endpoint; we read the embed first to establish the vizql session path).
-    const embed = `${TPUB}/views/${workbook}/${sheet}?:embed=y&:showVizHome=no&:tabs=no&:toolbar=no`;
-    await this.http.getText(embed);
-    // 2. bootstrapSession returns the data payload. Tableau mints the session server-side from
-    //    the embed load; the bootstrap path carries the workbook/sheet.
-    const url = `${TPUB}/vizql/w/${workbook}/v/${sheet}/bootstrapSession/sessions/`;
-    const res = await this.http.postJson<unknown>(url, undefined, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "text/javascript" },
-    }).catch(() => null);
-    if (res) return JSON.stringify(res);
-    // Fallback: return the embed HTML so the caller can extract a tsConfig/session if present.
-    return this.http.getText(embed);
+  embedUrl(workbook = GRADES_WORKBOOK, sheet = GRADES_SHEET): string {
+    return `${TPUB}/views/${workbook}/${sheet}?:embed=y&:showVizHome=no&:display_count=n&:origin=viz_share_link`;
   }
 }
