@@ -4,7 +4,7 @@ A verified, public-only catalog of University of Florida web endpoints, re-check
 
 The original repo mapped UF's hidden public endpoints and became the reference for a generation of UF student hackers. Four years later much of it has rotted: hosts moved, the famous campus-map JSON suite was locked down, and live seat data was pulled from the Schedule of Courses. This project re-verifies every documented endpoint against live 2026 UF infrastructure, marks what survived, documents what died, and adds the substantial new surface UF exposed in the meantime (a course-catalog AJAX feed, a grade-distribution dataset, a RateMyProfessors integration, and a brand-new SOC filters endpoint).
 
-Full catalog: see [ENDPOINTS.md](./ENDPOINTS.md).
+Full catalog: the curated, badge-annotated reference is [ENDPOINTS.md](./ENDPOINTS.md); the wide auto-generated map from the live discovery sweep (every UF host, 59+ live endpoints) is [CATALOG.md](./CATALOG.md).
 
 ## Credit
 
