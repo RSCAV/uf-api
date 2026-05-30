@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "Verified, public-only catalog and clients for University of Florida web APIs. A 2026 revival of Rolstenhouse/uf_api.",
   "type": "module",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
+    "demo": "tsx src/demo.ts",
+    "discover": "tsx scripts/discover.ts",
     "soc": "tsx clients/soc-client.ts",
     "rmp": "tsx clients/rmp-client.ts",
     "courseleaf": "tsx clients/courseleaf-client.ts",
