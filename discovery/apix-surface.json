@@ -1,0 +1,256 @@
+{
+  "scannedShells": [
+    "https://one.ufl.edu/",
+    "https://one.ufl.edu/soc/",
+    "https://one.ufl.edu/dashboard/",
+    "https://one.ufl.edu/workspace/"
+  ],
+  "scannedChunks": 27,
+  "apixPathCount": 10,
+  "serviceCount": 7,
+  "services": {
+    "logout": [
+      "/apix/logout"
+    ],
+    "featuretoggle": [
+      "/apix/featuretoggle/checkfeaturetoggle/",
+      "/apix/featuretoggle/checkfeaturetoggle/displayStaticCard"
+    ],
+    "login": [
+      "/apix/login/getadmissionlink"
+    ],
+    "search": [
+      "/apix/search/all/",
+      "/apix/search/getpubliclists"
+    ],
+    "maintenance": [
+      "/apix/maintenance/getmaintenancetime/"
+    ],
+    "response-cache": [
+      "/apix/response-cache/"
+    ],
+    "soc": [
+      "/apix/soc/filters",
+      "/apix/soc/schedule"
+    ]
+  },
+  "callSignatures": [
+    {
+      "method": "GET",
+      "path": "/apix/featuretoggle/checkfeaturetoggle/displayStaticCard",
+      "authHint": true,
+      "foundIn": "7686.160a6d2a561566dadcb9.min.js"
+    },
+    {
+      "method": "GET",
+      "path": "/apix/maintenance/getmaintenancetime/",
+      "authHint": true,
+      "foundIn": "7686.160a6d2a561566dadcb9.min.js"
+    },
+    {
+      "method": "GET",
+      "path": "/apix/search/all/",
+      "authHint": true,
+      "foundIn": "7686.160a6d2a561566dadcb9.min.js"
+    }
+  ],
+  "gatedFeatures": [
+    {
+      "title": "Find courses currently being offered",
+      "url": "/soc",
+      "tier": "student"
+    },
+    {
+      "title": "Register for courses",
+      "url": "/myschedule",
+      "tier": "student"
+    },
+    {
+      "title": "See your class schedule on the campus map",
+      "url": "/myschedule",
+      "tier": "student"
+    },
+    {
+      "title": "View your final grades",
+      "url": "/transcript",
+      "tier": "student"
+    },
+    {
+      "title": "Monitor your academic progress",
+      "url": "/degreeaudit",
+      "tier": "student"
+    },
+    {
+      "title": "Order a transcript",
+      "url": "/about/transcriptorder",
+      "tier": "student"
+    },
+    {
+      "title": "Check your status",
+      "url": "/applicants",
+      "tier": "applicants"
+    },
+    {
+      "title": "Access additional resources and contacts",
+      "url": "/applicants",
+      "tier": "applicants"
+    },
+    {
+      "title": "Read the latest UF news",
+      "url": "/news",
+      "tier": "applicants"
+    },
+    {
+      "title": "View your Teaching Schedule",
+      "url": "/staff",
+      "tier": "staff"
+    },
+    {
+      "title": "View Class rolls",
+      "url": "/staff",
+      "tier": "staff"
+    },
+    {
+      "title": "Approve Timesheets Easily",
+      "url": "/timeapp",
+      "tier": "staff"
+    },
+    {
+      "title": "Enter Final Grades",
+      "url": "/staff",
+      "tier": "staff"
+    },
+    {
+      "title": "Read the latest UF News",
+      "url": "/news",
+      "tier": "staff"
+    },
+    {
+      "title": "Keep up with current UF Events",
+      "url": "/events",
+      "tier": "staff"
+    }
+  ],
+  "serviceCatalog": [
+    {
+      "title": "Students",
+      "icon": "account_balance",
+      "description": "Manage your student life.",
+      "login": "student",
+      "items": [
+        {
+          "title": "Find courses currently being offered",
+          "url": "/soc",
+          "icon": "search",
+          "target": "_self"
+        },
+        {
+          "title": "Register for courses",
+          "url": "/myschedule",
+          "icon": "assignment_turned_in",
+          "target": "_self"
+        },
+        {
+          "title": "See your class schedule on the campus map",
+          "url": "/myschedule",
+          "icon": "location_on",
+          "target": "_self"
+        },
+        {
+          "title": "View your final grades",
+          "url": "/transcript",
+          "icon": "toc",
+          "target": "_self"
+        },
+        {
+          "title": "Monitor your academic progress",
+          "url": "/degreeaudit",
+          "icon": "pie_chart",
+          "target": "_self"
+        },
+        {
+          "title": "Order a transcript",
+          "url": "/about/transcriptorder",
+          "icon": "description",
+          "target": "_self"
+        }
+      ]
+    },
+    {
+      "title": "Applicants",
+      "icon": "check",
+      "description": "Be a Gator.",
+      "login": "applicants",
+      "items": [
+        {
+          "title": "Check your status",
+          "url": "/applicants",
+          "icon": "contact_support",
+          "target": "_self"
+        },
+        {
+          "title": "Access additional resources and contacts",
+          "url": "/applicants",
+          "icon": "question_answer",
+          "target": "_self"
+        },
+        {
+          "title": "Haven't submitted an application? Start here!",
+          "url": "http://admissions.ufl.edu/",
+          "icon": "launch",
+          "target": "_blank"
+        },
+        {
+          "title": "Read the latest UF news",
+          "url": "/news",
+          "icon": "rss_feed",
+          "target": "_self"
+        }
+      ]
+    },
+    {
+      "title": "Faculty / Staff",
+      "icon": "work",
+      "description": "Working with The Gator Nation.",
+      "login": "staff",
+      "items": [
+        {
+          "title": "View your Teaching Schedule",
+          "url": "/staff",
+          "icon": "date_range",
+          "target": "_self"
+        },
+        {
+          "title": "View Class rolls",
+          "url": "/staff",
+          "icon": "assignment",
+          "target": "_self"
+        },
+        {
+          "title": "Approve Timesheets Easily",
+          "url": "/timeapp",
+          "icon": "schedule",
+          "target": "_self"
+        },
+        {
+          "title": "Enter Final Grades",
+          "url": "/staff",
+          "icon": "done",
+          "target": "_self"
+        },
+        {
+          "title": "Read the latest UF News",
+          "url": "/news",
+          "icon": "rss_feed",
+          "target": "_self"
+        },
+        {
+          "title": "Keep up with current UF Events",
+          "url": "/events",
+          "icon": "event",
+          "target": "_self"
+        }
+      ]
+    }
+  ]
+}
